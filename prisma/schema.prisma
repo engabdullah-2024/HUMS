@@ -1,0 +1,162 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ====== ENUMS ======
+
+enum RoleName {
+  MAIN_ADMIN
+  FINANCE_ADMIN
+  EXAMS_ADMIN
+  RESULTS_ADMIN
+  DEPARTMENT_ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum ProgramLevel {
+  UNDERGRAD
+  POSTGRAD
+  DIPLOMA
+  CERTIFICATE
+}
+
+// ====== CORE AUTH / RBAC ======
+
+model User {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  email        String     @unique
+  passwordHash String
+  firstName    String
+  lastName     String?
+  isActive     Boolean    @default(true)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  roles         UserRole[]
+  // who this user has assigned roles to
+  assignedRoles UserRole[] @relation("UserRoleAssignedBy")
+
+  // audit logs
+  createdAuditLogs AuditLog[] @relation("AuditCreatedBy")
+  targetAuditLogs  AuditLog[] @relation("AuditTargetUser")
+}
+
+model Role {
+  id    String    @id @default(auto()) @map("_id") @db.ObjectId
+  name  RoleName  @unique
+  label String
+
+  users UserRole[]
+}
+
+model UserRole {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId       String   @db.ObjectId
+  roleId       String   @db.ObjectId
+  assignedById String?  @db.ObjectId
+
+  assignedAt   DateTime @default(now())
+
+  user       User @relation(fields: [userId], references: [id])
+  role       Role @relation(fields: [roleId], references: [id])
+
+  assignedBy User? @relation("UserRoleAssignedBy", fields: [assignedById], references: [id])
+
+  // ensure same user can't have the same role twice
+  @@unique([userId, roleId])
+}
+
+// ====== ACADEMICS ======
+
+model Faculty {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  name      String       @unique
+  code      String       @unique
+
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  departments Department[]
+}
+
+model Department {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  code       String
+
+  facultyId  String     @db.ObjectId
+  faculty    Faculty    @relation(fields: [facultyId], references: [id])
+
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  programs   Program[]
+  courses    Course[]   // required opposite side of Course.department
+
+  @@unique([facultyId, code])
+}
+
+model Program {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  code         String
+  level        ProgramLevel
+
+  departmentId String       @db.ObjectId
+  department   Department   @relation(fields: [departmentId], references: [id])
+
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  courses      Course[]
+
+  @@unique([departmentId, code])
+}
+
+model Course {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  code         String      @unique
+  title        String
+  creditHours  Int
+
+  programId    String?     @db.ObjectId
+  program      Program?    @relation(fields: [programId], references: [id])
+
+  departmentId String?     @db.ObjectId
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+// ====== AUDIT LOGS ======
+
+model AuditLog {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  actorId      String   @db.ObjectId
+  actor        User     @relation("AuditCreatedBy", fields: [actorId], references: [id])
+
+  targetUserId String?  @db.ObjectId
+  targetUser   User?    @relation("AuditTargetUser", fields: [targetUserId], references: [id])
+
+  action       String   // e.g. "CREATE_USER", "UPDATE_ROLE"
+  entityType   String   // e.g. "USER", "FACULTY", "COURSE"
+  entityId     String?  // id of the entity, as string (can be ObjectId string)
+  meta         Json?
+
+  createdAt    DateTime @default(now())
+}
