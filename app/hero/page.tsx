@@ -80,7 +80,7 @@ export default function HeroPage() {
               </Button>
             </Link>
 
-            <Link href="/admin">
+            <Link href="/dashboard">
               <Button
                 variant="outline"
                 size="lg"
