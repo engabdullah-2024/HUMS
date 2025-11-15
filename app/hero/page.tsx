@@ -70,7 +70,7 @@ export default function HeroPage() {
             {...fadeUp(0.12)}
             className="flex flex-col gap-3 sm:flex-row sm:items-center"
           >
-            <Link href="/login">
+            <Link href="/">
               <Button
                 size="lg"
                 className="group w-full justify-between gap-2 rounded-full bg-emerald-400 px-6 text-sm font-semibold text-emerald-950 shadow-lg shadow-emerald-500/40 hover:bg-emerald-300 sm:w-auto"
